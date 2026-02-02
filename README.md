@@ -42,11 +42,6 @@ Using artificial intelligence, we trained computer models to analyze standard re
 The training scripts expect **UK Biobank** fundus images and a CSV file with an `eid` column plus the label columns you want to predict.
 
 1. **Fundus image directory**
-   - **Single-eye training scripts** (`train_classification_multi.py`, `train_regression_multi.py`) read images using:
-     ```text
-     <image_dir>/<eid><eye_code>
-     ```
-     Example (default): `1234567_21015_0_0.png`.
 
    - **Multi-eye training scripts** (`*_mlflow.py`) expect *two* directories:
      ```text
@@ -79,29 +74,8 @@ Example directory layout:
 
 > These scripts use `torch.distributed` and should be launched with `torchrun`, even on a single GPU.
 
-### 1) Classification (single-eye)
-```bash
-torchrun --nproc_per_node=1 code/train_classification_multi.py \
-  --image_dir /data/ukb/fundus_left/ \
-  --csv_dir /data/ukb/labels.csv \
-  --eye_code _21015_0_0.png \
-  --label_code 31-0.0 \
-  --working_dir ViT_sex \
-  --model_name ViT_sex
-```
 
-### 2) Regression (single-eye)
-```bash
-torchrun --nproc_per_node=1 code/train_regression_multi.py \
-  --image_dir /data/ukb/fundus_left/ \
-  --csv_dir /data/ukb/labels.csv \
-  --eye_code _21015_0_0.png \
-  --label_code 21003-0.0 \
-  --working_dir ViT_age \
-  --model_name ViT_age
-```
-
-### 3) Classification (multi-eye + multi-GPU)
+### 1) Classification (multi-eye + multi-GPU)
 ```bash
 torchrun --nproc_per_node=2 code/train_classification_multi_mlflow.py \
   --left_image_dir /data/ukb/fundus_left/ \
@@ -114,7 +88,7 @@ torchrun --nproc_per_node=2 code/train_classification_multi_mlflow.py \
   --model_name Swin_classification
 ```
 
-### 4) Regression (multi-eye + multi-GPU)
+### 2) Regression (multi-eye + multi-GPU)
 ```bash
 torchrun --nproc_per_node=2 code/train_regression_multi_mlflow.py \
   --left_image_dir /data/ukb/fundus_left/ \
