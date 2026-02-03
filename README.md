@@ -1,45 +1,147 @@
 # AD_RF_Analysis
 
-The code for "Deep Learning Analysis of Retinal Structures and Risk Factors of Alzheimer’s Disease". Please contact Seowung Leem for implementation details. 
+Code and tutorial notebooks for **"Deep Learning Analysis of Retinal Structures and Risk Factors of Alzheimer’s Disease"**.
 
-* Lab: <leem.s@ufl.edu>
-* Personal: <leem.s@ufl.edu>
+This README is a step-by-step guide for running the tutorial code with explicit path requirements.
 
 ## Publication
-Deep Learning Analysis of Retinal Structures and Risk Factors of Alzheimer’s Disease
-Conference
-Seowung Leem, Yunchao Yang, Adam J. Woods, Ruogu Fang
-The 46th International Conference of the IEEE Engineering in Medicine and Biology Society, , Orlando, FL
+
+Deep Learning Analysis of Retinal Structures and Risk Factors of Alzheimer’s Disease  
+Conference  
+Seowung Leem, Yunchao Yang, Adam J. Woods, Ruogu Fang  
+The 46th International Conference of the IEEE Engineering in Medicine and Biology Society, Orlando, FL  
 Publication Date: July 15-19, 2024
 
-Risk Factor Prediction &amp; Analysis using fundus image. Funded by NSF
+Risk Factor Prediction & Analysis using fundus image. Funded by NSF
 
 ## Abstract
-The importance of early Alzheimer’s Disease screening is becoming more apparent, given the fact that there is no way to revert the patient’s status after the onset. However, the diagnostic procedure of Alzheimer’s Disease involves a comprehensive analysis of cognitive tests, blood sampling, and imaging, which limits the screening of a large population in a short period. Preliminary works show that rich neurological and cardiovascular information is encoded in the patient’s eye. Due to the relatively fast and easy procedure acquisition, early-stage screening of Alzheimer’s Disease patients with eye images holds great promise. In this study, we employed a deep neural network as a framework to investigate the relationship between risk factors of Alzheimer’s Disease and retinal structures. Our result shows that the model not only can predict several risk factors above the baseline but also can discover the relationship between the retinal structures and risk factors to provide insights into the retinal imaging biomarkers of Alzheimer’s disease.
 
-## How to run the code
+Using artificial intelligence, we trained computer models to analyze standard retinal images commonly taken during eye exams. These models could accurately estimate several AD-related risk factors, including age, blood pressure, diabetes, smoking, sleep problems, and depression. The AI consistently focused on meaningful regions of the eye, especially blood vessels and the optic nerve, which are closely linked to brain and vascular health. Notably, some eye-based patterns differed in people who later developed AD, nearly nine years before their diagnosis. While this approach does not diagnose Alzheimer’s disease, it suggests that routine eye images may capture early biological changes associated with future risk. This work highlights the potential of regular eye exams as a low-cost, non-invasive way to study and monitor brain health long before symptoms begin.
 
-### Requirements
-- Please refer to the *environment.yml* to meet the requirements for the environment. 
+## Repository layout
 
-- The dataset used in this experiment is from the *UK Biobank dataset* <https://www.ukbiobank.ac.uk/>. For the data availability, please visit this site to request the access. 
+- `code/` – training scripts, Grad-CAM scripts, notebooks, and the `environment.yml`.
+- `AutoMorph/` – external segmentation pipeline referenced by the tutorials.
 
-### (1) Model Training & Evaluation.
+## Step-by-step: set up the environment
 
-First, to train the model, we have to run the *train_classification_multi.py*. However, UKB has ~10,000 image counts, and the base model *Swin Transformer* has big parameter size. Therefore, using multi GPU is essential. The multi GPU version of *train_classification_multi.py* is *train_classification_multi_mlflow.py*. This is same for the regression task. 
+1. **Create and activate the conda environment** (from the repo root):
+   ```bash
+   conda env create -f code/environment.yml
+   conda activate <env-name>
+   ```
+   > Replace `<env-name>` with the `name:` defined in `code/environment.yml`.
 
-### (2) GradCAM visualization.
+2. **Install any extra dependencies required by Grad-CAM** (if not already in the environment):
+   ```bash
+   pip install pytorch-grad-cam
+   ```
 
-Then, trained weights are used for saliency map visualization. This provides the interpretability of the trained model, in terms of how the retinal structures contributed to the model's risk factor prediction. For this part, we utilized the code from <https://github.com/jacobgil/pytorch-grad-cam>. Please visit the link for implementation detail. The code is *GradCam_Visualization_Classification.py* for classification, and *GradCam_Visualization_Regression.py* for regression.  
+## Step-by-step: prepare data (path requirements)
 
-### (3) Inference Calculation.
+The training scripts expect **UK Biobank** fundus images and a CSV file with an `eid` column plus the label columns you want to predict.
 
-For segmentation map creation, we used the <https://github.com/rmaphoh/AutoMorph> for segmentation map generation. The image quality evaluation of UK-Biobank dataset was also performed with this repo (in specific, the M0_Preprocess Part). For implementation detail, plese visit the link. The notebook *Classification_Overlap_Calculation.ipynb* gives the way how we performed the inference calculation. 
+1. **Fundus image directory**
+
+   - **Multi-eye training scripts** (`*_mlflow.py`) expect *two* directories:
+     ```text
+     <left_image_dir>/<eid><left_eye_code>
+     <right_image_dir>/<eid><right_eye_code>
+     ```
+
+2. **CSV label file**
+   - Must include `eid` as a string column.
+   - Must include label columns referenced by `--label_code` (single label) or `--label` (multi-label).
+
+3. **Path requirements checklist**
+   - Use absolute paths or repo-relative paths.
+   - Keep **trailing slashes** in `--image_dir`, `--left_image_dir`, and `--right_image_dir` to match the code’s string concatenation.
+   - Ensure the `eye_code` suffixes match the filenames in the directory.
+
+Example directory layout:
+```
+/data/ukb/
+  fundus_left/
+    1234567_21015_0_0.png
+    7654321_21015_0_0.png
+  fundus_right/
+    1234567_21016_0_0.png
+    7654321_21016_0_0.png
+  labels.csv
+```
+
+## Step-by-step: run training
+
+> These scripts use `torch.distributed` and should be launched with `torchrun`, even on a single GPU.
 
 
+### 1) Classification (multi-eye + multi-GPU)
+```bash
+torchrun --nproc_per_node=2 code/train_classification_multi_mlflow.py \
+  --left_image_dir /data/ukb/fundus_left/ \
+  --right_image_dir /data/ukb/fundus_right/ \
+  --csv_dir /data/ukb/labels.csv \
+  --left_eye_code _21015_0_0.png \
+  --right_eye_code _21016_0_0.png \
+  --label 31-0.0 20116-0.0 \
+  --working_dir Swin_classification \
+  --model_name Swin_classification
+```
 
+### 2) Regression (multi-eye + multi-GPU)
+```bash
+torchrun --nproc_per_node=2 code/train_regression_multi_mlflow.py \
+  --left_image_dir /data/ukb/fundus_left/ \
+  --right_image_dir /data/ukb/fundus_right/ \
+  --csv_dir /data/ukb/labels.csv \
+  --left_eye_code _21015_0_0.png \
+  --right_eye_code _21016_0_0.png \
+  --label 21003-0.0 \
+  --working_dir Swin_regression \
+  --model_name Swin_regression
+```
 
+### Output locations
+- Single-eye scripts save to `./savedmodel/<working_dir>/` by default.
+- MLflow scripts write to `--logdir` (default: `./log`) and include their saved model checkpoints.
 
+## Step-by-step: Grad-CAM visualization
 
+The Grad-CAM scripts are **standalone** and have internal paths that you must update before running.
 
+1. Edit the following inside the script you plan to run:
+   - `get_saliency_map_classification()` in `code/GradCam_Visualization_Classification.py`
+   - `get_saliency_map_regression()` in `code/GradCam_Visualization_Regression.py`
 
+   Update:
+   - `img_path` (output directory)
+   - `model_path` (trained checkpoint)
+   - `label_df` CSV path
+
+2. Run the script:
+   ```bash
+   python code/GradCam_Visualization_Classification.py --feat 0
+   python code/GradCam_Visualization_Regression.py --feat 0
+   ```
+
+## Step-by-step: segmentation & inference (AutoMorph + notebooks)
+
+1. **AutoMorph segmentation**
+   - Follow the instructions in `AutoMorph/` to generate segmentation maps and quality scores.
+   - Point any outputs you generate to paths used in the notebooks below.
+
+2. **Run notebooks**
+   - `code/Tutorial.ipynb` – end-to-end examples, including overlap calculations.
+   - `code/Correlation_Analysis.ipynb` – correlation analysis workflows.
+
+   Launch Jupyter from the repo root:
+   ```bash
+   jupyter lab
+   ```
+   Then update any data paths inside the notebook cells to match your local directories.
+
+## Notes
+
+- The UK Biobank dataset requires approved access. See: https://www.ukbiobank.ac.uk/.
+- Multi-GPU runs require a CUDA-enabled environment with NCCL configured.
+- If you see path errors, confirm your directory **trailing slashes** and filename suffixes.
