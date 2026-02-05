@@ -1,4 +1,4 @@
-# AD_RF_Analysis
+# DeepRetinaADRisk
 
 Code and tutorial notebooks for **"Deep Learning Analysis of Retinal Structures and Risk Factors of Alzheimer’s Disease"**.
 
